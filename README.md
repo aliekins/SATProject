@@ -1,5 +1,18 @@
 # SATProject - Nonogram
-
+## Contents
+1. [Problem Description](##Problem-Description)
+2. [Encoding](##Encoding)
+   - [Definitions/Setup](####Definitions/Setup)
+   - [Row Constraints](####Row-Constraints)
+   - [Column Constraints](####Column-Constraints)
+   - [CNF Formulation](####CNF-Formulation)
+   - [Example](####Example)
+4. [Problem Description](##Problem-Description)
+5. [Problem Description](##Problem-Description)
+6. [User Documentation](##User-Documentation)
+7. [Examples](##Examples)
+8. [Experiments](##Experiments)
+9. [Sources and References](###Sources-and-References)
 ## Problem Description
 A Nonogram, in some countries also known as a Japanese puzzle, is a logic
 puzzle, where the goal is to draw a rectangular image that follows certain row
@@ -49,7 +62,7 @@ Assuming:
 Defining:
  - $x_{i,j}$ := propositional variable indicating whether $C_{i,j}$  is filled
    
-##### Row Constraints
+#### Row Constraints
 For each row $i$ with constraints $[k_1, k_2,\dots,k_m]$ :
 1. defining possible placements for each block $k_p$ starting from different positions in the row
 2. ensuring block do not overlap
@@ -61,10 +74,10 @@ For each possible starting position $s_p$ of block $k_p$:
      - if $k_p$ ends at $s_p+k_p-1$ then the next block must start after at least one empty cell
      - adding constraint that cell $C_{i,s_p+k_p-1}$ is empty
 
-##### Column Constraints
+#### Column Constraints
 Analogous to row constraints - For each column $j$ with constraints /dots
 
-##### CNF Formulation
+#### CNF Formulation
 Converting constraints to CNF:
 1. **AND** - all cells within a block/group must be filled (converting each **AND** sequence into clauses)
 2. **OR** - all valid block placements within a row/column must be generated (**OR** clauses covering all possible starting points - at least one placement needs to be chosen)
