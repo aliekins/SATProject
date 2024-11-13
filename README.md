@@ -1,18 +1,17 @@
 # SATProject - Nonogram
 ## Contents
-1. [Problem Description](##Problem-Description)
-2. [Encoding](##Encoding)
-   - [Definitions/Setup](####Definitions/Setup)
-   - [Row Constraints](####Row-Constraints)
-   - [Column Constraints](####Column-Constraints)
-   - [CNF Formulation](####CNF-Formulation)
-   - [Example](####Example)
-4. [Problem Description](##Problem-Description)
-5. [Problem Description](##Problem-Description)
-6. [User Documentation](##User-Documentation)
-7. [Examples](##Examples)
-8. [Experiments](##Experiments)
-9. [Sources and References](###Sources-and-References)
+1. [Problem Description](#problem-description)
+2. [Encoding](#encoding)
+   - [Definitions/Setup](#definitionssetup)
+   - [Row Constraints](#row-constraints)
+   - [Column Constraints](#column-constraints)
+   - [CNF Formulation](#cnf-formulation)
+   - [Example](#example)
+4. [User Documentation](#user-documentation)
+5. [Examples](#examples)
+6. [Experiments](#experiments)
+7. [Sources and References](#sources-and-references)
+   
 ## Problem Description
 A Nonogram, in some countries also known as a Japanese puzzle, is a logic
 puzzle, where the goal is to draw a rectangular image that follows certain row
