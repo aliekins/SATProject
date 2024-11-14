@@ -1,6 +1,7 @@
 import subprocess
 from argparse import ArgumentParser
 from itertools import product
+from itertools import combinations
 
 def get_input(input_file_name):
     """
@@ -27,50 +28,127 @@ def get_input(input_file_name):
 
 def generate_block_placements(blocks, length, cell_fn):
     """
-    generates clauses for placing a sequence of blocks within a line of given length
+    Generates clauses for placing a sequence of blocks within a line of given length
         - blocks: list of block sizes
         - length: total length/number of cells in the line (row or column)
         - cell_fn: returns the DNF variable for a given position in the line
     returns:
         - list of DNF clauses representing valid block placement
-    """
     clauses = []
-    valid_placements = []
-    
-    # iterating through each possible start position for blocks
-    for start_pos in range(length - sum(blocks) - len(blocks) + 1 + 1):
-        placement = []
+    base_length = sum(blocks) + (len(blocks) - 1)  # mini length required with single gaps
+    max_extra_gaps = length - base_length          # extra spaces to distribute
 
-        # filling leading empty cells before the block sequence starts
-        for empty_pos in range(start_pos):
-            placement.append(-cell_fn(empty_pos))
-
-        # placing blocks with necessary gaps between them
+    # try each possible starting position for the base configuration
+    for start_pos in range(length - base_length + 1):
+        # base placement (without additional gaps)
+        base_placement = []
         pos = start_pos
-        for block_idx, block_size in enumerate(blocks):
-            # adding filled cells for the current block
-            for k in range(block_size):
-                placement.append(cell_fn(pos + k))
-            pos += block_size
 
-            # adding an empty cell as a gap between blocks, if more blocks are to follow
-            if block_idx < len(blocks) - 1:
-                placement.append(-cell_fn(pos))
+        # leading empty cells
+        for empty_pos in range(start_pos):
+            base_placement.append(-cell_fn(empty_pos))
+        
+        # placing blocks with a single gap by default
+        block_end_positions = []  
+        for i, block_size in enumerate(blocks):
+            # filling cells for the current block
+            for j in range(block_size):
+                base_placement.append(cell_fn(pos + j))
+            pos += block_size
+            
+            # recording the position after the block for potential gaps
+            if i < len(blocks) - 1:
+                block_end_positions.append(pos)
+                base_placement.append(-cell_fn(pos))
                 pos += 1
 
-        # filling trailing empty cells after the block sequence ends
+        # trailing empty cells
         for empty_pos in range(pos, length):
-            placement.append(-cell_fn(empty_pos))
+            base_placement.append(-cell_fn(empty_pos))
 
-        # adding this placement as a valid configuration
-        valid_placements.append(placement)
+        # adding base placement as a configuration
+        clauses.append(base_placement)
+        print(f"DEBUG BASE:{base_placement}")
 
-    # adding all valid placements to clauses
-    for placement in valid_placements:
-        clauses.append(placement)
+        # generate alternative configurations with extra gaps
+        for extra_gap_count in range(1, max_extra_gaps + 1):
+            for gap_positions in combinations(block_end_positions, extra_gap_count):
+                # rebuilding the placement, adding extra gaps where specified
+                alt_placement = []
+                pos = start_pos
+                
+                # leading empty cells
+                for empty_pos in range(start_pos):
+                    alt_placement.append(-cell_fn(empty_pos))
+
+                # placing each block and add extra gaps if in gap_positions
+                for i, block_size in enumerate(blocks):
+                    for j in range(block_size):
+                        alt_placement.append(cell_fn(pos + j))
+                    pos += block_size
+
+                    # add gaps
+                    if i < len(blocks) - 1:
+                        if pos in gap_positions:
+                            alt_placement.append(-cell_fn(pos))
+                            pos += 1
+
+                # filling trailing empty cells
+                for empty_pos in range(pos, length):
+                    alt_placement.append(-cell_fn(empty_pos))
+
+                clauses.append(alt_placement)
+                print(f"DEBUG ALTERNATE:{alt_placement}")
 
     return clauses
+    """
+    clauses = []
 
+    def place_blocks_recursive(block_index, pos, current_placement):
+        # base case: all blocks placed
+        if block_index == len(blocks):
+            # filling trailing empty cells
+            for empty_pos in range(pos, length):
+                current_placement.append(-cell_fn(empty_pos))
+            clauses.append(current_placement.copy())
+            print(f"DEBUG PLACEMENT: {current_placement}")
+            # removing trailing empty cells to backtrack correctly
+            for empty_pos in range(pos, length):
+                current_placement.pop()
+            return
+
+        # recursive case: place the current block and recurse
+        block_size = blocks[block_index]
+        max_start_pos = length - (sum(blocks[block_index:]) + (len(blocks) - block_index - 1))
+        
+        for start in range(pos, max_start_pos + 1):
+            # add leading empty cells for the current position
+            for empty_pos in range(pos, start):
+                current_placement.append(-cell_fn(empty_pos))
+            
+            # placing the block
+            for j in range(block_size):
+                current_placement.append(cell_fn(start + j))
+            next_pos = start + block_size
+            
+            # adding a gap cell if this is not the last block
+            if block_index < len(blocks) - 1:
+                current_placement.append(-cell_fn(next_pos))
+                next_pos += 1
+
+            # recurse to place the next block
+            place_blocks_recursive(block_index + 1, next_pos, current_placement)
+
+            # backtrack: remove current block and gap cells
+            for _ in range(block_size):
+                current_placement.pop()
+            if block_index < len(blocks) - 1:
+                current_placement.pop()
+            for empty_pos in range(pos, start):
+                current_placement.pop()
+
+    place_blocks_recursive(0, 0, [])
+    return clauses
 
 def dnf_to_cnf(dnf_clauses):
     """
@@ -109,7 +187,7 @@ def encode(n, row_rules, col_rules):
         if not blocks:  # no blocks, row should be all empty
             clauses.append([-cell_var(i, j) for j in range(n)])
         else:
-            row_clauses_DNF = generate_block_placements(blocks, n, lambda j: cell_var(i, j))
+            row_clauses_DNF = generate_block_placements(blocks, n, lambda j: cell_var(i, j))           
             row_clauses_CNF = dnf_to_cnf(row_clauses_DNF)
             clauses.extend(row_clauses_CNF)
         print(f"DEBUG: Row {i + 1} clauses count: {len(row_clauses_CNF)}")
@@ -177,6 +255,11 @@ def parse_solution(result, n):
             j = cell_num % n
             print(f"Debug: Filling cell at ({i}, {j}) based on variable {var}")
             grid[i][j] = "#"
+        else:
+            cell_num = -var - 1
+            i = cell_num // n
+            j = cell_num % n
+            grid[i][j] = "."
     
     for row in grid:
         print(" ".join(row))
