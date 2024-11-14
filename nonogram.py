@@ -7,7 +7,7 @@ def get_input(input_file_name):
     function for retrieving the Nonogram from a file
     needed input:
         - n := grid side (n*n := grid size)
-        - row_rules := list of lists, represents row constraints
+        - row_rules := list of lists, represents row constraints (sizes of blocks of each row)
         - column_rules := -||- but for columns
     """
     with open(input_file_name, "r") as file:
@@ -25,97 +25,92 @@ def get_input(input_file_name):
 
     return n, row_rules, column_rules
 
-def generate_patterns(length, groups):
-    min_length = sum(groups) + len(groups) - 1
-    if min_length > length:
-        return []
-    
-    patterns = []
-    n_spaces = length - sum(groups)
-    for spaces in product(range(n_spaces + 1), repeat=len(groups) + 1):
-        if sum(spaces) == n_spaces:
-            pattern = [0] * length
-            pos = spaces[0]
+def generate_block_placements(blocks, length, cell_fn):
+    """
+    generates clauses for placing a sequence of blocks within a line of given length
+    - blocks: list of block sizes
+    - length: total length/number of cells in the line (row or column)
+    - cell_fn: returns the CNF variable for a given position in the line
+    returns:
+    - list of CNF clauses representing valid block placement
+    """
+    clauses = []
+    valid_placements = []
 
-            for group, space in zip(groups, spaces[1:]):
-                if pos + group > length:
-                    break 
-                for _ in range(group):
-                    pattern[pos] = 1
-                    pos += 1
-                pos += space + 1 
-            else:
-                patterns.append(pattern)
-    return patterns
+    def place_blocks(block_idx, pos, placement):
+        # recursively generating placements for each block
+        if block_idx == len(blocks):       # base case - all blocks placed
+            for empty_pos in range(pos, length):      # filling the remaining cells with 'empty' clause
+                placement.append(-cell_fn(empty_pos))
+            valid_placements.append(placement[:])
+            return
+
+        block_size = blocks[block_idx]
+
+        while pos + block_size <= length:
+            new_placement = placement[:]     # copying current placement 
+            
+            # adding current block's cells - 'filled' clause
+            for k in range(block_size):
+                new_placement.append(cell_fn(pos + k))
+            
+            if pos + block_size < length:      # if I am not at the end of the line - there must be space after the block
+                new_placement.append(-cell_fn(pos + block_size))
+            
+            place_blocks(block_idx + 1, pos + block_size + 1, new_placement)   # calling to place the next block
+            pos += 1
+
+    place_blocks(0, 0, [])
+
+    for placement in valid_placements:
+        clauses.append(placement)
+
+    return clauses
 
 def encode(n, row_rules, col_rules, output_name):
+    """
+    encodes the Nonogram puzzle into CNF format
+    - n: size of the grid (n x n)
+    - row_rules, col_rules: constraints for rows, columns
+    - output_name: file to store the CNF formula
+    """
+    clauses = []
+    var_count = n * n  # each cell is being represented as a variable
+
+    def cell_var(i, j):
+        # creating unique variable index for cell (i,j)
+        return i * n + j + 1
+
+    # row constraints - generating clauses for each row
+    for i, blocks in enumerate(row_rules):
+        if not blocks:  # no blocks, row should be all empty
+            clauses.append([-cell_var(i, j) for j in range(n)])
+        else:
+            row_clauses = generate_block_placements(blocks, n, lambda j: cell_var(i, j))
+            clauses.extend(row_clauses)
+        print(f"DEBUG: Row {i + 1} clauses count: {len(row_clauses)}")
+
+    # analogous for column constraints
+    for j, blocks in enumerate(col_rules):
+        if not blocks:  
+            clauses.append([-cell_var(i, j) for i in range(n)])
+        else:
+            col_clauses = generate_block_placements(blocks, n, lambda i: cell_var(i, j))
+            clauses.extend(col_clauses)
+        print(f"DEBUG: Column {j + 1} clauses count: {len(col_clauses)}")
+
+    # writing clauses to the output CNF file
     with open(output_name, "w") as cnf_file:
-        clauses = []
-        var_map = lambda i,j: i * n + j + 1
+        cnf_file.write(f"p cnf {var_count} {len(clauses)}\n")
 
-        for i, row_rule in enumerate(row_rules):
-            row_patterns = generate_patterns(n, row_rule)
-            pattern_clauses = []
-            if not row_patterns:
-                print(f"ERROR: No valid patterns found for row {i} with rule {row_rule}")
-                continue
-        
-            for pattern in row_patterns:
-                clause = []
-
-                for j, value in enumerate(pattern):
-                    var = var_map(i, j)
-                    if value == 1:
-                        clause.append(str(var))  
-                    else:
-                        clause.append(f"{-var}")  
-
-                clauses.append(" ".join(clause) + " 0")  
-                pattern_clauses.append(clause)
-
-            for p1 in range(len(pattern_clauses)):
-                for p2 in range(p1 + 1, len(pattern_clauses)):
-                    exclusivity_clause = []
-                    exclusivity_clause.extend(-lit for lit in pattern_clauses[p1])
-                    exclusivity_clause.extend(-lit for lit in pattern_clauses[p2])
-                    clauses.append(" ".join(map(str, exclusivity_clause)) + " 0")
-            print(f"DEBUG: Row {i} patterns: {row_patterns}")
-
-        for j, col_rule in enumerate(col_rules):
-            col_patterns = generate_patterns(n, col_rule)
-            pattern_clauses = []
-
-            if not col_patterns:
-                print(f"ERROR: No valid patterns found for column {j} with rule {col_rule}")
-                continue
-
-            for pattern in col_patterns:
-                clause = []
-
-                for i, value in enumerate(pattern):
-                    var = var_map(i, j)
-                    if value == 1:
-                        clause.append(str(var)) 
-                    else:
-                        clause.append(f"-{var}") 
-
-                clauses.append(" ".join(clause) + " 0")  
-                pattern_clauses.append(clause)
-          
-            for p1 in range(len(pattern_clauses)):
-                for p2 in range(p1 + 1, len(pattern_clauses)):
-                    exclusivity_clause = []
-                    exclusivity_clause.extend(-lit for lit in pattern_clauses[p1])
-                    exclusivity_clause.extend(-lit for lit in pattern_clauses[p2])
-                    clauses.append(" ".join(map(str, exclusivity_clause)) + " 0")
-            print(f"DEBUG: Column {j} patterns: {col_patterns}")
-
-        cnf_file.write(f"p cnf {n * n} {len(clauses)}\n")
         for clause in clauses:
-            cnf_file.write(clause + "\n")
-            print(f"DEBUG: Clause added: {clause}")  #
+            cnf_file.write(" ".join(map(str, clause)) + " 0\n")
 
 def call_solver(cnf_file, solver_name="glucose"):
+    """
+    calls an external SAT solver to attempt solving the CNF formula
+    - cnf_file: contains encoded Nonogram
+    """
     output_file = "output.model"
     with open(output_file, "w") as out_file:
         result = subprocess.run([solver_name, cnf_file], stdout=out_file, stderr=subprocess.PIPE, text=True)
@@ -132,33 +127,15 @@ def call_solver(cnf_file, solver_name="glucose"):
             return None
 
 def parse_solution(result, n):
+    """
+    interprets the SAT solver output
+    - result : raw slution for the solver
+    """
     if result is None:
         print("No solution found")
         return None
 
-    grid = [[0] * n for _ in range(n)]
-    for line in result.splitlines():
-        if line.startswith("v"):
-            vars = map(int, line.split()[1:])
-            for var in vars:
-                if var > 0:
-                    i = (var - 1) // n
-                    j = (var - 1) % n
-                    grid[i][j] = 1
-                else:
-                    i = (-var - 1) // n
-                    j = (-var - 1) % n
-                    grid[i][j] = 0
-                print(f"DEBUG: Variable {var} set grid[{i}][{j}] to {'#' if grid[i][j] == 1 else '.'}")
-
-    print("Solution found:")
-    for row in grid:
-        for cell in row:
-            if cell == 1:
-                print("#", end=" ")
-            else:
-                print(".", end=" ")
-        print()
+    print("Solution found")
 
 if __name__ == "__main__":
     parser = ArgumentParser()

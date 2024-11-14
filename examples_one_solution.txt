@@ -118,3 +118,15 @@ output
 0 0 0 1 0 0 1 0 0 0 1 0 0 1 0
 0 0 0 1 1 1 1 0 0 0 1 0 1 1 0
 0 0 0 0 1 1 0 0 0 0 0 0 1 1 1 
+
+input
+5
+2 4
+5
+1 2 2
+3
+0
+0
+
+output
+No solution found (lenght constraints breached)
