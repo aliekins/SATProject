@@ -28,51 +28,55 @@ def get_input(input_file_name):
 def generate_block_placements(blocks, length, cell_fn):
     """
     generates clauses for placing a sequence of blocks within a line of given length
-    - blocks: list of block sizes
-    - length: total length/number of cells in the line (row or column)
-    - cell_fn: returns the CNF variable for a given position in the line
+        - blocks: list of block sizes
+        - length: total length/number of cells in the line (row or column)
+        - cell_fn: returns the CNF variable for a given position in the line
     returns:
-    - list of CNF clauses representing valid block placement
+        - list of CNF clauses representing valid block placement
     """
     clauses = []
     valid_placements = []
+    
+    # iterating through each possible start position for blocks
+    for start_pos in range(length - sum(blocks) - len(blocks) + 1 + 1):
+        placement = []
 
-    def place_blocks(block_idx, pos, placement):
-        # recursively generating placements for each block
-        if block_idx == len(blocks):       # base case - all blocks placed
-            for empty_pos in range(pos, length):      # filling the remaining cells with 'empty' clause
-                placement.append(-cell_fn(empty_pos))
-            valid_placements.append(placement[:])
-            return
+        # filling leading empty cells before the block sequence starts
+        for empty_pos in range(start_pos):
+            placement.append(-cell_fn(empty_pos))
 
-        block_size = blocks[block_idx]
-
-        while pos + block_size <= length:
-            new_placement = placement[:]     # copying current placement 
-            
-            # adding current block's cells - 'filled' clause
+        # placing blocks with necessary gaps between them
+        pos = start_pos
+        for block_idx, block_size in enumerate(blocks):
+            # adding filled cells for the current block
             for k in range(block_size):
-                new_placement.append(cell_fn(pos + k))
-            
-            if pos + block_size < length:      # if I am not at the end of the line - there must be space after the block
-                new_placement.append(-cell_fn(pos + block_size))
-            
-            place_blocks(block_idx + 1, pos + block_size + 1, new_placement)   # calling to place the next block
-            pos += 1
+                placement.append(cell_fn(pos + k))
+            pos += block_size
 
-    place_blocks(0, 0, [])
+            # adding an empty cell as a gap between blocks, if more blocks are to follow
+            if block_idx < len(blocks) - 1:
+                placement.append(-cell_fn(pos))
+                pos += 1
 
+        # filling trailing empty cells after the block sequence ends
+        for empty_pos in range(pos, length):
+            placement.append(-cell_fn(empty_pos))
+
+        # adding this placement as a valid configuration
+        valid_placements.append(placement)
+
+    # adding all valid placements to clauses
     for placement in valid_placements:
         clauses.append(placement)
 
     return clauses
 
-def encode(n, row_rules, col_rules, output_name):
+def encode(n, row_rules, col_rules):
     """
     encodes the Nonogram puzzle into CNF format
-    - n: size of the grid (n x n)
-    - row_rules, col_rules: constraints for rows, columns
-    - output_name: file to store the CNF formula
+        - n: size of the grid (n x n)
+        - row_rules, col_rules: constraints for rows, columns
+        - output_name: file to store the CNF formula
     """
     clauses = []
     var_count = n * n  # each cell is being represented as a variable
@@ -99,43 +103,62 @@ def encode(n, row_rules, col_rules, output_name):
             clauses.extend(col_clauses)
         print(f"DEBUG: Column {j + 1} clauses count: {len(col_clauses)}")
 
+    return clauses, var_count
+
+def call_solver(cnf, num_vars, output_name, solver_name, verbosity):
+    """
+    writes the CNF formula to a file and calls external SAT solver
+        - cnf: list of CNF clauses 
+        - num_vars: count of all variables
+        - output_name: file where CNF will be saved
+    returns:
+        - solver result found by subporocess
+    """
     # writing clauses to the output CNF file
     with open(output_name, "w") as cnf_file:
-        cnf_file.write(f"p cnf {var_count} {len(clauses)}\n")
+        cnf_file.write(f"p cnf {num_vars} {len(cnf)}\n")
 
-        for clause in clauses:
+        for clause in cnf:
             cnf_file.write(" ".join(map(str, clause)) + " 0\n")
 
-def call_solver(cnf_file, solver_name="glucose"):
-    """
-    calls an external SAT solver to attempt solving the CNF formula
-    - cnf_file: contains encoded Nonogram
-    """
-    output_file = "output.model"
-    with open(output_file, "w") as out_file:
-        result = subprocess.run([solver_name, cnf_file], stdout=out_file, stderr=subprocess.PIPE, text=True)
-
-        if result.returncode == 10:  # SATISFIABLE
-            with open(output_file, "r") as file:
-                output = file.read()
-            return output
-        elif result.returncode == 20:  # UNSATISFIABLE
-            print("No solution found")
-            return None
-        else:
-            print("Error:", result.stderr)
-            return None
+    result = subprocess.run(
+        [solver_name, output_name, '-model', '-verb=' + str(verbosity)],
+        stdout=subprocess.PIPE,
+        text=True
+    )
+    print("Debug: Raw solver output:\n", result.stdout)  # Debugging: print raw solver output
+    return result
 
 def parse_solution(result, n):
     """
     interprets the SAT solver output
     - result : raw slution for the solver
     """
-    if result is None:
+    if "UNSAT" in result.stdout:
         print("No solution found")
         return None
 
-    print("Solution found")
+    print("Solution found\n")
+
+    model = []
+    for line in result.stdout.splitlines():
+        if line.startswith("v"):
+            model.extend(int(x) for x in line.split()[1:] if x != "0")
+
+    print("Debug: Extracted model from solver output:", model)
+    
+    grid = [[" " for _ in range(n)] for _ in range(n)]
+
+    for var in model:
+        if var > 0:
+            cell_num = var - 1
+            i = cell_num // n
+            j = cell_num % n
+            print(f"Debug: Filling cell at ({i}, {j}) based on variable {var}")
+            grid[i][j] = "#"
+    
+    for row in grid:
+        print(" ".join(row))
 
 if __name__ == "__main__":
     parser = ArgumentParser()
@@ -147,7 +170,7 @@ if __name__ == "__main__":
 
     n, row_rules, col_rules = get_input(args.input)
     
-    encode(n, row_rules, col_rules, args.output)
+    cnf, num_vars = encode(n, row_rules, col_rules)
 
-    result = call_solver(args.output, args.solver)
+    result = call_solver(cnf, num_vars, args.output, args.solver, args.verbosity)
     parse_solution(result, n)
