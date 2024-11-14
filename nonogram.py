@@ -30,9 +30,9 @@ def generate_block_placements(blocks, length, cell_fn):
     generates clauses for placing a sequence of blocks within a line of given length
         - blocks: list of block sizes
         - length: total length/number of cells in the line (row or column)
-        - cell_fn: returns the CNF variable for a given position in the line
+        - cell_fn: returns the DNF variable for a given position in the line
     returns:
-        - list of CNF clauses representing valid block placement
+        - list of DNF clauses representing valid block placement
     """
     clauses = []
     valid_placements = []
@@ -71,6 +71,25 @@ def generate_block_placements(blocks, length, cell_fn):
 
     return clauses
 
+
+def dnf_to_cnf(dnf_clauses):
+    """
+    converts a DNF formula to CNF.
+    - dnf_clauses: list of lists where each sublist represents a conjunction of literals
+                   and the outer list represents disjunctions between these conjunctions.
+    returns: CNF as a list of lists where each sublist represents a disjunction of literals
+               and the outer list represents conjunctions between these disjunctions.
+    """
+    cnf_clauses = [[lit] for lit in dnf_clauses[0]]
+    
+    for clause in dnf_clauses[1:]:
+        clause = [[lit] for lit in clause]
+        cnf_clauses = [c1 + c2 for c1, c2 in product(cnf_clauses, clause)]
+    
+    cnf_clauses = [list(set(clause)) for clause in cnf_clauses]
+    
+    return cnf_clauses
+
 def encode(n, row_rules, col_rules):
     """
     encodes the Nonogram puzzle into CNF format
@@ -90,18 +109,20 @@ def encode(n, row_rules, col_rules):
         if not blocks:  # no blocks, row should be all empty
             clauses.append([-cell_var(i, j) for j in range(n)])
         else:
-            row_clauses = generate_block_placements(blocks, n, lambda j: cell_var(i, j))
-            clauses.extend(row_clauses)
-        print(f"DEBUG: Row {i + 1} clauses count: {len(row_clauses)}")
+            row_clauses_DNF = generate_block_placements(blocks, n, lambda j: cell_var(i, j))
+            row_clauses_CNF = dnf_to_cnf(row_clauses_DNF)
+            clauses.extend(row_clauses_CNF)
+        print(f"DEBUG: Row {i + 1} clauses count: {len(row_clauses_CNF)}")
 
     # analogous for column constraints
     for j, blocks in enumerate(col_rules):
         if not blocks:  
             clauses.append([-cell_var(i, j) for i in range(n)])
         else:
-            col_clauses = generate_block_placements(blocks, n, lambda i: cell_var(i, j))
-            clauses.extend(col_clauses)
-        print(f"DEBUG: Column {j + 1} clauses count: {len(col_clauses)}")
+            col_clauses_DNF = generate_block_placements(blocks, n, lambda i: cell_var(i, j))
+            col_clauses_CNF = dnf_to_cnf(col_clauses_DNF)
+            clauses.extend(col_clauses_CNF)
+        print(f"DEBUG: Column {j + 1} clauses count: {len(col_clauses_CNF)}")
 
     return clauses, var_count
 
