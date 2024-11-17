@@ -1,7 +1,7 @@
+
 import subprocess
 from argparse import ArgumentParser
 from itertools import product
-from itertools import combinations
 
 def get_input(input_file_name):
     """
@@ -101,6 +101,26 @@ def dnf_to_cnf(dnf_clauses):
     
     return cnf_clauses
 
+def to_cnf(dnf_lists):
+    cnf = []
+    num_of_comb = 1
+    for lst in dnf_lists:
+        num_of_comb *= len(lst)
+
+    indexes = [0] * len(dnf_lists)  
+
+    for c in range(num_of_comb):
+        temp = [dnf_lists[i][indexes[i]] for i in range(len(dnf_lists))]
+        cnf.append(temp)
+
+        for i in range(len(indexes) - 1, -1, -1): 
+            indexes[i] += 1
+            if indexes[i] < len(dnf_lists[i]):  
+                break
+            indexes[i] = 0  
+
+    return cnf
+
 def encode(n, row_rules, col_rules):
     """
     encodes the Nonogram puzzle into CNF format
@@ -114,24 +134,33 @@ def encode(n, row_rules, col_rules):
     def cell_var(i, j):
         # creating unique variable index for cell (i,j)
         return i * n + j + 1
+    
+    # if n > 5:
+    #     def converter(blocks, length, line_index):
+    #         dnf_clauses = generate_block_placements(blocks, length, lambda j: line_index + j)
+    #         return to_cnf(dnf_clauses)
+    # else:
+    #     def converter(blocks, length, line_index):
+    #         dnf_clauses = generate_block_placements(blocks, length, lambda j: line_index + j)
+    #         return dnf_to_cnf(dnf_clauses)
 
     # row constraints - generating clauses for each row
     for i, blocks in enumerate(row_rules):
         if not blocks:  # no blocks, row should be all empty
             clauses.append([-cell_var(i, j) for j in range(n)])
         else:
-            row_clauses_DNF = generate_block_placements(blocks, n, lambda j: cell_var(i, j))           
-            row_clauses_CNF = dnf_to_cnf(row_clauses_DNF)
+            row_clauses_DNF = generate_block_placements(blocks, n, lambda j: cell_var(i,j))
+            row_clauses_CNF = to_cnf(row_clauses_DNF)
             clauses.extend(row_clauses_CNF)
         print(f"DEBUG: Row {i + 1} clauses count: {len(row_clauses_CNF)}")
 
     # analogous for column constraints
     for j, blocks in enumerate(col_rules):
-        if not blocks:  
+        if not blocks:
             clauses.append([-cell_var(i, j) for i in range(n)])
         else:
-            col_clauses_DNF = generate_block_placements(blocks, n, lambda i: cell_var(i, j))
-            col_clauses_CNF = dnf_to_cnf(col_clauses_DNF)
+            col_clauses_DNF = generate_block_placements(blocks, n, lambda i: cell_var(i,j))
+            col_clauses_CNF = to_cnf(col_clauses_DNF)
             clauses.extend(col_clauses_CNF)
         print(f"DEBUG: Column {j + 1} clauses count: {len(col_clauses_CNF)}")
 

@@ -1,0 +1,26 @@
+
+
+
+
+
+
+
+
+
+INPUTS BIGGER THAN 10X10 DONT WORK
+
+
+
+
+
+input
+5
+2 4
+5
+1 2 2
+3
+0
+0
+
+output
+No solution found (lenght constraints breached)
