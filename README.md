@@ -56,7 +56,7 @@ And the targeted nonogram in this case would be:
 > [!IMPORTANT]
 > For (this)[./nonogram.py] version (nonogram.py), if there is a rule for 0 blocks in a row/column, the line should be left EMPTY. For the other version, 0 should be placed
 
-## Encoding
+## Encoding[^2]
 #### Definitions/Setup
 Assuming:
  - $n$  := grid dimension
@@ -96,7 +96,7 @@ Of course, this is just DNF. For CNF, different methods need to be used. There i
 
 Function `to_cnf` creates all possible combinations for the elements of the group, which in `dnf_to_cnf` function is achieved by "logical multiplication". The only real difference between them, is that I coded `to_cnf` and `dnf_to_cnf` uses itertools' function `product`. Both of them work great for smaller nonograms, the sizes up to 5x5, no matter the complexity, are resolved rather fast. However, after the 6x6 mark, if the complexity of the puzzle is greater (small amounts of groups and many placement posibilities), the brute force approach takes long and at times does not even compile since it gets killed. The issue with big recursion depth is resolved by calling the `to_cnf` function instead of `dnf_to_cnf`, but still, the process gets killed due to Memory Exceptions, since number of clauses is exponential.
 
-(Nonogram.py)[./nonogram.py], on the other hand, is a bit more complex. The idea was to encode the individual blocks, instead of cells, and thus, if you run it, the `[OUTPUT].cnf` file might seem unreadable, but here is the key.
+[Nonogram.py](./nonogram.py), on the other hand, is a bit more complex. The idea was to encode the individual blocks, instead of cells, and thus, if you run it, the `[OUTPUT].cnf` file might seem unreadable, but here is the key.
  - block := rule defined in input (consecutive filled cells of a row/column)
  - variables := created for each block/rule made in the rows, with offset $n * previousBlocks_{count}$ (n := length of the row)
  - cnf tells us := starting position of each block, based on their offsets
@@ -122,6 +122,8 @@ Here, the job is done through functions `min_filled_in_column`, `choose_filled_i
  - ensure the minimal placement exists based on the column rules, while sticking to the variables used for encoding row blocks
  - ensure that the number is exact according to the rule, while blocks need to stay consecutive
 
+Unfortunately, my constraints do not always provide correct solution for the second option, which is of course an issue. However, one of the reasons I am turning in the work last minute is because I restarted the approach to the solution  about 6 different times, so at this point, this is the best I've got.
+
 ## User Documentation
 The usage was kept the same as in [SAT Example](https://gitlab.mff.cuni.cz/svancaj/logika_SAT_example). So, basic usage:
 ```
@@ -135,12 +137,23 @@ Command-line options:
  - `-v {0,1}`, `--verb {0,1}` : Verbosity of the SAT solver to be used
    
 >[!WARNING]
->If you are planning on testing larger inputs on the (worse option)[./inefficient_nonogram.py], I recommend getting yourself a coffee, extra disc and possibly a cooling fan (for both yourself and your PC) :slightly_smiling_face:
+>If you are planning on testing larger inputs on the [worse option](./inefficient_nonogram.py), I recommend getting yourself a coffee, extra disc and possibly a cooling fan (for both yourself and your PC) :slightly_smiling_face:
 
-## Examples
-(Examples)[./examples_one_solution] can be found in the linked file. The constraints of my code have been explained before, so I will not go into too many details. 
+## Examples[^3]
+ - [examples 2x2 grid](./examples/examples_2x2.txt)
+ - [examples 3x3 grid](./examples/examples_3x3.txt)
+ - [examples 4x4 grid](./examples/examples_4x4.txt)
+ - [examples 5x5x grid](./examples/examples_5x5.txt)
+ - [examples 6x6 grid](./examples/examples_6x6.txt)
+ - [examples 7x7 grid](./examples/examples_7x7.txt)
+ - [examples 10x10 grid](./examples/examples_10x10.txt)
+ - [examples 15x15 grid](./examples/examples_15x15.txt)
 
 ## Experiments
-experiment here
+This slightly strange experiment. But since I would like to fix my constraints so that they do not have flaws, I will try to do an evaluation of when the logic is broken.
+
+
 ### Sources and References
-[^1]: My source
+[^1]: https://liacs.leidenuniv.nl/~kosterswa/buffalo.pdf
+[^2]: https://fse.studenttheses.ub.rug.nl/15287/1/Master_Educatie_2017_RAOosterman.pdf
+[^3]: https://www.myhomeschoolmath.com/nonogram.html
