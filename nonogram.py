@@ -93,7 +93,7 @@ def min_filled_in_column(num_filled, col_num, row_rules, cnf):
     cnf = choose_filled_in_column(vars, vars_neg, num_filled, cnf)
 
 def choose(lists, cnf):
-    print(f"sent in : {lists}")
+    # print(f"sent in : {lists}")
     num_of_comb = 1
     for lst in lists:
         num_of_comb *= len(lst)
@@ -133,10 +133,8 @@ def choose_filled_in_column(vars, neg_vars, num_filled, cnf):
                     # print(f"k:{k}", end=", ")
                     temp2.append(k)
             cnf.append(temp2)
-    # elif len(vars[i] for i in vars) == 1:
     else:
         # for i in combinations(vars, num_filled):
-        #     print(f"RUNNING CHOOSE on {i}")
         #     cnf = choose(i, cnf)
         for i in combinations(vars, num_filled):
             temp = []
@@ -144,11 +142,17 @@ def choose_filled_in_column(vars, neg_vars, num_filled, cnf):
                 for k in j:
                     temp.append(k)
             cnf.append(temp)
-
+        
         for i in combinations(neg_vars, num_filled + 1):
-            print(f"RUNNING CHOOSE on {i}")
             cnf = choose(i, cnf)
-    
+        # for i in combinations(neg_vars, num_filled + 1):
+        #     # print(f"combo: {i}")
+        #     temp = []
+        #     for j in i:
+        #         for k in j:
+        #             temp.append(k)
+        #     cnf.append(temp)
+        
     return cnf
 
 def encode(n, row_rules, col_rules):
@@ -166,13 +170,13 @@ def encode(n, row_rules, col_rules):
     for r in row_rules:
         processed_blocks = 1
         for i in r:
-            print("RAN 2")
+            # print("RAN 2")
             cnf = no_two_blocks_overlap(block_num, r[processed_blocks-1], len(r) - processed_blocks, cnf, n)
             processed_blocks += 1
             block_num += 1
 
     for c_indx, col in enumerate(col_rules):
-        print("RAN 3")
+        # print("RAN 3")
         cnf = calculate_block_positions_col(col, c_indx + 1, row_rules, cnf)
 
     num_vars = block_num * n
