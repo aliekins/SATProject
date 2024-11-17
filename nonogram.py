@@ -42,27 +42,18 @@ def block_starts_at_most_once(num_block, n, cnf):
         for j in range(i, end + 1):
             if i != j:
                 cnf.append([-i, -j])
+    return cnf
 
-# def no_two_blocks_overlap(block_num, rules, rules_vars, cnf):
-#     current_block_vars = rules_vars[block_num - 1]
-#     # print(f"{current_block_vars}")
-
-#     if block_num < len(rules_vars):
-#         next_block_vars = rules_vars[block_num]
-#         # print(f"{next_block_vars}")
-#     else: 
-#         return
-    
-#     current_block_length = 
-#     for start_indx in range(len(current_block_vars)):
-#         current_start = current_block_vars[start_indx]
-
-#         forbidden_start = start_indx + current_block_length + 1
-
-#         for next_start_indx in range(forbidden_start, len(next_block_vars)):
-#             next_start = next_block_vars[next_start_indx]
-
-#             cnf.append([-current_start, -next_start])
+def no_two_blocks_overlap(block_num, block_length, num_next_blocks, cnf, n):
+    block_var_offset = block_num * n
+    for pos in range(1, n + 1):
+        for k in range(1, num_next_blocks + 1):
+            for pair in range(1, pos + block_length + 1):
+                if (block_var_offset + (k + 1) * n + 1 > block_var_offset + k * n + pair):
+                    cnf.append([-(pos + block_var_offset), -(block_var_offset + k*n + pair)])
+                else:
+                    cnf.append([-(pos + block_var_offset)])
+    return cnf
 
 def calculate_block_positions(rules, n, start_indx):
     positions = []
@@ -79,28 +70,106 @@ def calculate_block_positions(rules, n, start_indx):
             current_start = max_pos
     return positions
 
+def calculate_block_positions_col(col, col_num, row_rules, cnf):
+    min_filled_in_column(sum(col), col_num, row_rules, cnf)
+    return cnf
+
+def min_filled_in_column(num_filled, col_num, row_rules, cnf):
+    block_number = 0
+    vars = []
+    vars_neg = []
+    for r_indx, rule in enumerate(row_rules):
+        temp = []
+        temp_neg = []
+        for b_indx, block in enumerate(rule):
+            block_offset = block_number * n
+            for i in range(block):
+                if(block_offset < (block_offset + col_num - i)):
+                    temp.append(block_offset + col_num - i)
+                    temp_neg.append(-(block_offset + col_num - i))
+            block_number += 1
+        vars.append(temp)
+        vars_neg.append(temp_neg)
+    cnf = choose_filled_in_column(vars, vars_neg, num_filled, cnf)
+
+def choose(lists, cnf):
+    numOfComb = 1
+    for i in lists:
+        numOfComb *= len(i)
+
+    indexes = []
+    lenghts = []
+    for i in range(len(lists)):
+        indexes.append(0)
+        lenghts.append(len(lists[i]))
+
+    for i in range(numOfComb):
+               
+        temp = []
+        for index, list in enumerate(lists):
+            print(f"index:{indexes[index]}")
+            print(f"list:{list}")
+            temp.append(list[indexes[index]])
+        cnf.append(temp)
+    return cnf
+
+def choose_filled_in_column(vars, neg_vars, num_filled, cnf):
+    if num_filled == 0:
+        for i in neg_vars:
+            for j in i:
+                for k in j:
+                    cnf.append([k])
+
+    elif num_filled == 1:
+        temp1 = []
+        for i in vars:
+            for j in i:
+                temp1.append(j)
+        cnf.append(temp1)
+        for i in combinations(neg_vars, 2):
+            # print(f"i:{i}")
+            temp2 = []
+            for j in i:
+                for k in j:
+                    # print(f"k:{k}", end=", ")
+                    temp2.append(k)
+            cnf.append(temp2)
+    
+    else:
+        for i in combinations(vars, num_filled):
+            print(f"RUNNING CHOOSE on {i}")
+            cnf = choose(i, cnf)
+
+        for i in combinations(neg_vars, num_filled + 1):
+            print(f"RUNNING CHOOSE on {i}")
+            cnf = choose(i, cnf)
+    
+    return cnf
+
 def encode(n, row_rules, col_rules):
     cnf = []
-    num_vars = 0
     position_var_rows = calculate_block_positions(row_rules, n, start_indx=1)
-    position_var_cols = calculate_block_positions(col_rules, n, start_indx=1 + + sum(len(row) for row in row_rules) * n)
-
-    print(f"{row_rules}")
-    print(f"{col_rules}")
-    print(f"{position_var_rows}")
-    print(f"{position_var_cols}")
 
     for block in range(1, len(position_var_rows) + 1):
-        block_filled_at_least_once(block, n, cnf)
-        block_starts_at_most_once(block, n, cnf)
+        print("RAN 1")
+        cnf = block_filled_at_least_once(block, n, cnf)
+        cnf = block_starts_at_most_once(block, n, cnf)
 
-    block_num = 1
+    block_num = 0
     for r in row_rules:
-        for block in position_var_rows:
-            # no_two_blocks_overlap(block_num, row_rules, position_var_rows, cnf)
+        processed_blocks = 1
+        for i in r:
+            print("RAN 2")
+            cnf = no_two_blocks_overlap(block_num, r[processed_blocks-1], len(r) - processed_blocks, cnf, n)
+            processed_blocks += 1
             block_num += 1
 
-    return cnf, num_vars
+    for c_indx, col in enumerate(col_rules):
+        print("RAN 3")
+        cnf = calculate_block_positions_col(col, c_indx + 1, row_rules, cnf)
+
+    num_vars = block_num * n
+    return cnf, num_vars 
 
 def call_solver(cnf, num_vars, output_name, solver_name, verbosity):
     """
@@ -144,17 +213,23 @@ def parse_solution(result, n):
 
     print("Debug: Extracted model from solver output:", model)
     
-    grid = [[" " for _ in range(n)] for _ in range(n)]
+    grid = [["." for _ in range(n)] for _ in range(n)]
 
+    block_starts = []
     for var in model:
-        if abs(var) <= n * n:  
-            i = (abs(var) - 1) // n
-            j = (abs(var) - 1) % n
         if var > 0:
-            print(f"Debug: Filling cell at ({i}, {j}) based on variable {var}")
-            grid[i][j] = "#"
-        else:
-            grid[i][j] = "."
+            num = var % n
+            if num == 0:
+                num = n
+            block_starts.append(num - 1)
+    # print(block_starts)
+
+    block_index = 0
+    for row, row_rule in enumerate(row_rules):
+        for r_indx, rule in enumerate(row_rule):
+            for i in range(rule):
+                grid[row][block_starts[block_index] + i] = "#"  
+            block_index += 1          
     
     for row in grid:
         print(" ".join(row))
@@ -172,4 +247,4 @@ if __name__ == "__main__":
     cnf, num_vars = encode(n, row_rules, col_rules)
 
     result = call_solver(cnf, num_vars, args.output, args.solver, args.verbosity)
-    parse_solution(result, n)
+    # parse_solution(result, n)
