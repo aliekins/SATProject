@@ -1,6 +1,5 @@
 import subprocess
 from argparse import ArgumentParser
-from itertools import product
 from itertools import combinations
 
 def get_input(input_file_name):
@@ -26,116 +25,82 @@ def get_input(input_file_name):
 
     return n, row_rules, column_rules
 
-def generate_block_placements(blocks, length, cell_fn):
-    """
-    Generates clauses for placing a sequence of blocks within a line of given length
-        - blocks: list of block sizes
-        - length: total length/number of cells in the line (row or column)
-        - cell_fn: returns the DNF variable for a given position in the line
-    returns:
-        - list of DNF clauses representing valid block placement
-    """
-    clauses = []
+def block_filled_at_least_once(num_block, n, cnf):
+    temp = []
+    start = (num_block - 1) * n + 1
+    end = num_block * n
+    for i in range (start, end + 1):
+        temp.append(i) 
+    cnf.append(temp)
+    return cnf
 
-    def place_blocks_recursive(block_index, pos, current_placement):
-        # base case: all blocks placed
-        if block_index == len(blocks):
-            # filling trailing empty cells
-            for empty_pos in range(pos, length):
-                current_placement.append(-cell_fn(empty_pos))
-            clauses.append(current_placement.copy())
-            print(f"DEBUG PLACEMENT: {current_placement}")
-            # removing trailing empty cells to backtrack correctly
-            for empty_pos in range(pos, length):
-                current_placement.pop()
-            return
+def block_starts_at_most_once(num_block, n, cnf):
+    start = (num_block - 1) * n + 1
+    end = num_block * n
 
-        # recursive case: place the current block and recurse
-        block_size = blocks[block_index]
-        max_start_pos = length - (sum(blocks[block_index:]) + (len(blocks) - block_index - 1))
-        
-        for start in range(pos, max_start_pos + 1):
-            # add leading empty cells for the current position
-            for empty_pos in range(pos, start):
-                current_placement.append(-cell_fn(empty_pos))
-            
-            # placing the block
-            for j in range(block_size):
-                current_placement.append(cell_fn(start + j))
-            next_pos = start + block_size
-            
-            # adding a gap cell if this is not the last block
-            if block_index < len(blocks) - 1:
-                current_placement.append(-cell_fn(next_pos))
-                next_pos += 1
+    for i in range(start, end + 1):
+        for j in range(i, end + 1):
+            if i != j:
+                cnf.append([-i, -j])
 
-            # recurse to place the next block
-            place_blocks_recursive(block_index + 1, next_pos, current_placement)
+# def no_two_blocks_overlap(block_num, rules, rules_vars, cnf):
+#     current_block_vars = rules_vars[block_num - 1]
+#     # print(f"{current_block_vars}")
 
-            # backtrack: remove current block and gap cells
-            for _ in range(block_size):
-                current_placement.pop()
-            if block_index < len(blocks) - 1:
-                current_placement.pop()
-            for empty_pos in range(pos, start):
-                current_placement.pop()
-
-    place_blocks_recursive(0, 0, [])
-    return clauses
-
-def dnf_to_cnf(dnf_clauses):
-    """
-    converts a DNF formula to CNF.
-    - dnf_clauses: list of lists where each sublist represents a conjunction of literals
-                   and the outer list represents disjunctions between these conjunctions.
-    returns: CNF as a list of lists where each sublist represents a disjunction of literals
-               and the outer list represents conjunctions between these disjunctions.
-    """
-    cnf_clauses = [[lit] for lit in dnf_clauses[0]]
+#     if block_num < len(rules_vars):
+#         next_block_vars = rules_vars[block_num]
+#         # print(f"{next_block_vars}")
+#     else: 
+#         return
     
-    for clause in dnf_clauses[1:]:
-        clause = [[lit] for lit in clause]
-        cnf_clauses = [c1 + c2 for c1, c2 in product(cnf_clauses, clause)]
-    
-    cnf_clauses = [list(set(clause)) for clause in cnf_clauses]
-    
-    return cnf_clauses
+#     current_block_length = 
+#     for start_indx in range(len(current_block_vars)):
+#         current_start = current_block_vars[start_indx]
+
+#         forbidden_start = start_indx + current_block_length + 1
+
+#         for next_start_indx in range(forbidden_start, len(next_block_vars)):
+#             next_start = next_block_vars[next_start_indx]
+
+#             cnf.append([-current_start, -next_start])
+
+def calculate_block_positions(rules, n, start_indx):
+    positions = []
+    current_start = start_indx
+
+    for rule in rules:
+        for block in range(len(rule)):
+            min_pos = current_start
+            max_pos = current_start + n
+
+            block_pos = list(range(min_pos, max_pos))
+            positions.append(block_pos)
+
+            current_start = max_pos
+    return positions
 
 def encode(n, row_rules, col_rules):
-    """
-    encodes the Nonogram puzzle into CNF format
-        - n: size of the grid (n x n)
-        - row_rules, col_rules: constraints for rows, columns
-        - output_name: file to store the CNF formula
-    """
-    clauses = []
-    var_count = n * n  # each cell is being represented as a variable
+    cnf = []
+    num_vars = 0
+    position_var_rows = calculate_block_positions(row_rules, n, start_indx=1)
+    position_var_cols = calculate_block_positions(col_rules, n, start_indx=1 + + sum(len(row) for row in row_rules) * n)
 
-    def cell_var(i, j):
-        # creating unique variable index for cell (i,j)
-        return i * n + j + 1
+    print(f"{row_rules}")
+    print(f"{col_rules}")
+    print(f"{position_var_rows}")
+    print(f"{position_var_cols}")
 
-    # row constraints - generating clauses for each row
-    for i, blocks in enumerate(row_rules):
-        if not blocks:  # no blocks, row should be all empty
-            clauses.append([-cell_var(i, j) for j in range(n)])
-        else:
-            row_clauses_DNF = generate_block_placements(blocks, n, lambda j: cell_var(i, j))           
-            row_clauses_CNF = dnf_to_cnf(row_clauses_DNF)
-            clauses.extend(row_clauses_CNF)
-        print(f"DEBUG: Row {i + 1} clauses count: {len(row_clauses_CNF)}")
+    for block in range(1, len(position_var_rows) + 1):
+        block_filled_at_least_once(block, n, cnf)
+        block_starts_at_most_once(block, n, cnf)
 
-    # analogous for column constraints
-    for j, blocks in enumerate(col_rules):
-        if not blocks:  
-            clauses.append([-cell_var(i, j) for i in range(n)])
-        else:
-            col_clauses_DNF = generate_block_placements(blocks, n, lambda i: cell_var(i, j))
-            col_clauses_CNF = dnf_to_cnf(col_clauses_DNF)
-            clauses.extend(col_clauses_CNF)
-        print(f"DEBUG: Column {j + 1} clauses count: {len(col_clauses_CNF)}")
+    block_num = 1
+    for r in row_rules:
+        for block in position_var_rows:
+            # no_two_blocks_overlap(block_num, row_rules, position_var_rows, cnf)
+            block_num += 1
 
-    return clauses, var_count
+    return cnf, num_vars
 
 def call_solver(cnf, num_vars, output_name, solver_name, verbosity):
     """
@@ -158,7 +123,7 @@ def call_solver(cnf, num_vars, output_name, solver_name, verbosity):
         stdout=subprocess.PIPE,
         text=True
     )
-    print("Debug: Raw solver output:\n", result.stdout)  # Debugging: print raw solver output
+    print("Debug: Raw solver output:\n", result.stdout) 
     return result
 
 def parse_solution(result, n):
@@ -182,16 +147,13 @@ def parse_solution(result, n):
     grid = [[" " for _ in range(n)] for _ in range(n)]
 
     for var in model:
+        if abs(var) <= n * n:  
+            i = (abs(var) - 1) // n
+            j = (abs(var) - 1) % n
         if var > 0:
-            cell_num = var - 1
-            i = cell_num // n
-            j = cell_num % n
             print(f"Debug: Filling cell at ({i}, {j}) based on variable {var}")
             grid[i][j] = "#"
         else:
-            cell_num = -var - 1
-            i = cell_num // n
-            j = cell_num % n
             grid[i][j] = "."
     
     for row in grid:
