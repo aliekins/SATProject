@@ -56,7 +56,7 @@ And the targeted nonogram in this case would be:
 > [!IMPORTANT]
 > For (this)[./nonogram.py] version (nonogram.py), if there is a rule for 0 blocks in a row/column, the line should be left EMPTY. For the other version, 0 should be placed
 
-## Encoding[^2]
+## Encoding
 #### Definitions/Setup
 Assuming:
  - $n$  := grid dimension
@@ -139,7 +139,7 @@ Command-line options:
 >[!WARNING]
 >If you are planning on testing larger inputs on the [worse option](./inefficient_nonogram.py), I recommend getting yourself a coffee, extra disc and possibly a cooling fan (for both yourself and your PC) :slightly_smiling_face:
 
-## Examples[^3]
+## Examples
  - [examples 2x2 grid](./examples/examples_2x2.txt)
  - [examples 3x3 grid](./examples/examples_3x3.txt)
  - [examples 4x4 grid](./examples/examples_4x4.txt)
@@ -161,7 +161,9 @@ The results are within the example files listed above
 
 Overall the results are not ultimately conclusive, since for example simetry is an issue only sometimes, while other times it is computed correctly. The size of the grid, of course, becomes an issue pretty soon, however non-complex grids of larger sizes are still solved, while some 4x4 are not. The issue, I believe, lies within column constraints and their exact encoding. Frequency of issue `returns "UNSATISFIABLE"` , when the grid in fact has solution, might indicate that there is too many constraints. However, once I tried to simplfy them, it was not constrictive enough. 
 
+If You have any ideas or recommendations for improvement, I would highly appreciate the feedback. @sarae
+
 ### Sources and References
-[^1]: https://liacs.leidenuniv.nl/~kosterswa/buffalo.pdf
-[^2]: https://fse.studenttheses.ub.rug.nl/15287/1/Master_Educatie_2017_RAOosterman.pdf
-[^3]: https://www.myhomeschoolmath.com/nonogram.html
+[^1]: https://liacs.leidenuniv.nl/~kosterswa/buffalo.pdf </br>
+https://fse.studenttheses.ub.rug.nl/15287/1/Master_Educatie_2017_RAOosterman.pdf </br>
+https://www.myhomeschoolmath.com/nonogram.html 
