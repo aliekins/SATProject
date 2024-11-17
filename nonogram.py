@@ -25,18 +25,18 @@ def get_input(input_file_name):
 
     return n, row_rules, column_rules
 
-def block_filled_at_least_once(num_block, n, cnf):
+def block_filled_at_least_once(block_indx, block_length, n, cnf):
     temp = []
-    start = (num_block - 1) * n + 1
-    end = num_block * n
+    start = block_indx * n + 1
+    end = (block_indx + 1)* n - (block_length - 1)
     for i in range (start, end + 1):
         temp.append(i) 
     cnf.append(temp)
     return cnf
 
-def block_starts_at_most_once(num_block, n, cnf):
-    start = (num_block - 1) * n + 1
-    end = num_block * n
+def block_starts_at_most_once(block_indx, n, cnf):
+    start = block_indx * n + 1
+    end = (block_indx + 1) * n
 
     for i in range(start, end + 1):
         for j in range(i, end + 1):
@@ -93,24 +93,23 @@ def min_filled_in_column(num_filled, col_num, row_rules, cnf):
     cnf = choose_filled_in_column(vars, vars_neg, num_filled, cnf)
 
 def choose(lists, cnf):
-    numOfComb = 1
-    for i in lists:
-        numOfComb *= len(i)
+    print(f"sent in : {lists}")
+    num_of_comb = 1
+    for lst in lists:
+        num_of_comb *= len(lst)
 
-    indexes = []
-    lenghts = []
-    for i in range(len(lists)):
-        indexes.append(0)
-        lenghts.append(len(lists[i]))
+    indexes = [0] * len(lists)  
 
-    for i in range(numOfComb):
-               
-        temp = []
-        for index, list in enumerate(lists):
-            print(f"index:{indexes[index]}")
-            print(f"list:{list}")
-            temp.append(list[indexes[index]])
+    for c in range(num_of_comb):
+        temp = [lists[i][indexes[i]] for i in range(len(lists))]
         cnf.append(temp)
+
+        for i in range(len(indexes) - 1, -1, -1): 
+            indexes[i] += 1
+            if indexes[i] < len(lists[i]):  
+                break
+            indexes[i] = 0  
+
     return cnf
 
 def choose_filled_in_column(vars, neg_vars, num_filled, cnf):
@@ -134,11 +133,17 @@ def choose_filled_in_column(vars, neg_vars, num_filled, cnf):
                     # print(f"k:{k}", end=", ")
                     temp2.append(k)
             cnf.append(temp2)
-    
+    # elif len(vars[i] for i in vars) == 1:
     else:
+        # for i in combinations(vars, num_filled):
+        #     print(f"RUNNING CHOOSE on {i}")
+        #     cnf = choose(i, cnf)
         for i in combinations(vars, num_filled):
-            print(f"RUNNING CHOOSE on {i}")
-            cnf = choose(i, cnf)
+            temp = []
+            for j in i:
+                for k in j:
+                    temp.append(k)
+            cnf.append(temp)
 
         for i in combinations(neg_vars, num_filled + 1):
             print(f"RUNNING CHOOSE on {i}")
@@ -149,11 +154,13 @@ def choose_filled_in_column(vars, neg_vars, num_filled, cnf):
 def encode(n, row_rules, col_rules):
     cnf = []
     position_var_rows = calculate_block_positions(row_rules, n, start_indx=1)
-
-    for block in range(1, len(position_var_rows) + 1):
-        print("RAN 1")
-        cnf = block_filled_at_least_once(block, n, cnf)
-        cnf = block_starts_at_most_once(block, n, cnf)
+    
+    block_indx = 0
+    for row in row_rules:
+        for block in row:
+            cnf = block_filled_at_least_once(block_indx, block, n, cnf)
+            cnf = block_starts_at_most_once(block_indx, n, cnf)
+            block_indx += 1
 
     block_num = 0
     for r in row_rules:
@@ -247,4 +254,4 @@ if __name__ == "__main__":
     cnf, num_vars = encode(n, row_rules, col_rules)
 
     result = call_solver(cnf, num_vars, args.output, args.solver, args.verbosity)
-    # parse_solution(result, n)
+    parse_solution(result, n)
