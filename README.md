@@ -88,6 +88,30 @@ Possibilites are:
 - first block of two cells starts at position 0, second block of one cell can be placed at positions 3 or 4:
   - *Option 1:* $x_{i,0} \land x_{i,1} \land \neg x_{i,2} \land x_{i3}$ (in such case $\neg x_{i,4}$
   - *Option 2:*  $x_{i,0} \land x_{i,1} \land \neg x_{i,2} \land \neg x_{i3} \land x_{i,4}$
+ 
+Of course, this is just DNF. For CNF different methods need to be used. There is brute force, used in [one version](./inefficient_nonogram.py) and there is a more thought through approach, seen in [the other version](./nonogram.py). In the brute force approach, I create all possible groups of a row/column as described above. Then, there are two possible functions to call, which return the groups' CNF form. 
+
+Function `to_cnf` creates all possible combinations for the elements of the group, which in `dnf_to_cnf` function is achieved by "logical multiplication". Both of them work great for smaller nonograms, the sizes up to 5x5, no matter the complexity, are resolved rather fast. However, after the 6x6 mark, if the complexity of the puzzle is greater (small amounts of groups and many placement posibilities), the brute force approach takes long and at times does not even compile since it gets killed. The issue with big recursion depth is resolved by calling the `to_cnf` function instead of `dnf_to_cnf`, but still, the process gets killed due to Memory Exceptions, since number of clauses is exponential.
+
+(Nonogram.py)[./nonogram.py], on the other hand, is a bit more complex. The idea was to encode the individual blocks, instead of cells, and thus, if you run it, the `[OUTPUT].cnf` file might seem unreadable, but here is the key.
+ - block := rule defined in input (consecutive filled cells of a row/column)
+ - variables := created for each block/rule made in the rows, with offset $n * number_of_previous_blocks$ (n := length of the row)
+ - cnf tells us := starting position of each block, based on their offsets
+
+#### Row Constraints
+for each block applies:
+ - it has to be placed in the row at least once - function `block_filled_at_least_once`
+ - the block cannot start, if its length would exceed the grid - function `block_filled_at_least_once`
+ - it has to be placed in the row at most once (cannot have starting index at more than one cell) - function `block_starts_at_most_once`
+ - it cannot overlap with other blocks withtin the same row (+ minimal spaces between blocks need to be satisfied) - function `no_two_blocks_overlap`
+
+This was the "easier" part for the constraints. Then comes the part of placing the blocks based on columns.
+
+#### Column Constraints
+Here, the job is done through functions `min_filled_in_column`, `choose_filled_in_column` and `choose`. The names are not so descriptive and the functions themselves are less readable than the ones for rows. But, basic idea was to:
+ - ensure the placement exists based on the column rules, while incorporating the variables used for code blocks
+ - for the 
+
 ## User Documentation
 The usage was kept the same as in [SAT Example](https://gitlab.mff.cuni.cz/svancaj/logika_SAT_example). So, basic usage:
 ```
@@ -99,6 +123,9 @@ Command-line options:
  - `-o OUTPUT`, `--output OUTPUT` : Output file for the DIMACS format (i.e. the CNF formula)
  - `-s SOLVER`, `--solver SOLVER` : The SAT solver used. Default: glucose
  - `-v {0,1}`, `--verb {0,1}` : Verbosity of the SAT solver to be used
+   
+>[!WARNING]
+>If you are planning on testing larger inputs on the (worse option)[./inefficient_nonogram.py], I recommend getting yourself a coffee, extra disc and possibly a cooling fan (for both yourself and your PC) :slightly_smiling_face:
 
 ## Examples
 examples here
