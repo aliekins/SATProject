@@ -152,6 +152,14 @@ Command-line options:
 ## Experiments
 This slightly strange experiment. But since I would like to fix my constraints so that they do not have flaws, I will try to do an evaluation of when the logic is broken.
 
+The results are within the example files listed above
+ - `w` next to input means that the programs compiled output was correct
+ - `returns "UNSATISFIABLE"` means that the program nonogram.py collected incorrect result (inefficient_nonogram.py was correct in all cases, but time of computing was exponentially getting worse)
+ - `expected output` is followed by `output` means that the solution provided was incorrect, both are inculded
+ - `missplaces*` denotes the small incorrectness of the code, where the logic was broken by maximum of two rows/cols
+ - `gets killed` means that the program never finished compiling
+
+Overall the results are not ultimately conclusive, since for example simetry is an issue only sometimes, while other times it is computed correctly. The size of the grid, of course, becomes an issue pretty soon, however non-complex grids of larger sizes are still solved, while some 4x4 are not. The issue, I believe, lies within column constraints and their exact encoding. Frequency of issue `returns "UNSATISFIABLE"` , when the grid in fact has solution, might indicate that there is too many constraints. However, once I tried to simplfy them, it was not constrictive enough. 
 
 ### Sources and References
 [^1]: https://liacs.leidenuniv.nl/~kosterswa/buffalo.pdf
